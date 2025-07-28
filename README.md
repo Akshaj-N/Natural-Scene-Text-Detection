@@ -2,8 +2,8 @@
 
 A robust text detection and extraction system for detecting text in natural scene images, addressing challenges like curved text, varying lighting and complex backgrounds. The pipeline consists of three main stages:  
 
-(1) Pre-processing using a novel Norm-CLAHE technique to enhance contrast without amplifying noise  
-(2) Text Region Extraction leveraging MSER, Otsu’s thresholding and Sobel edge detection  
+(1) Pre-processing using a novel Norm-CLAHE technique to enhance contrast without amplifying noise.  
+(2) Text Region Extraction leveraging MSER, Otsu’s thresholding and Sobel edge detection.  
 (3) Non-Text Removal using Connected Components, morphological filters and geometric properties. 
 
 This provides a comprehensive solution for detecting and localizing text regions in images through advanced computer vision techniques. 
