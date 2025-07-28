@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Detection Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.8em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.3em;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .upload-section {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 5px;
+            height: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #fafbff;
+        }
+        
+        .upload-area:hover {
+            background-color: #f0f2ff;
+            border-color: #764ba2;
+            transform: translateY(-2px);
+        }
+        
+        .upload-area.dragover {
+            background-color: #e8ebff;
+            border-color: #4c51bf;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-text {
+            font-size: 20px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .upload-subtext {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .file-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .results-container {
+            display: none;
+        }
+        
+        .pipeline-stages {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .result-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .result-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-color: #e9ecef;
+        }
+        
+        .result-item:hover::before {
+            transform: translateY(0);
+        }
+        
+        .result-item h3 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 1em;
+            font-weight: 600;
+        }
+        
+        .result-item img {
+            width: 100%;
+            height: auto;
+            max-height: 200px;
+            object-fit: contain;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .result-item img:hover {
+            transform: scale(1.03);
+            border-color: #667eea;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            margin: 2% auto;
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+        
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0,0,0,0.5);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        
+        .close:hover {
+            color: #667eea;
+            transform: rotate(90deg);
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .error-message::before {
+            content: '⚠️ ';
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .upload-section, .pipeline-stages {
+                padding: 20px;
+            }
+            
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Text Detection Pipeline</h1>
+    </header>
+    
+    <div class="container">
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <h2 class="section-title">Upload Image for Text Extraction</h2>
+            <div class="upload-area" id="uploadArea">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <p class="upload-text">Drag & drop an image here or click to browse</p>
+                <p class="upload-subtext">Supported formats: PNG, JPG, JPEG, GIF, BMP (Max: 16MB)</p>
+            </div>
+            <input type="file" id="imageFile" accept="image/*">
+            
+            <div class="file-info" id="fileInfo">
+                <strong>Selected file:</strong> <span id="fileName"></span> 
+                (<span id="fileSize"></span>)
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="processImage()" id="processBtn" disabled>
+                    Process Image
+                </button>
+                <button class="btn btn-secondary" onclick="resetUpload()" id="resetBtn" style="display: none;">
+                    Reset
+                </button>
+            </div>
+            
+            <div id="loading">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Processing your image... This may take a few moments.</p>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+        
+        <!-- Results Container -->
+        <div class="results-container" id="resultsContainer">
+            <!-- Final Result Section -->
+            <div class="pipeline-stages" style="margin-bottom: 40px;">
+                <h2 class="section-title">Final Result</h2>
+                <div id="finalResult" style="max-width: 500px; margin: 20px auto;">
+                    <!-- Final result will be displayed here -->
+                </div>
+            </div>
+            
+            <!-- Pipeline Stages -->
+            <div class="pipeline-stages">
+                <h2 class="section-title">Pipeline Processing Stages</h2>
+                <div id="results" class="results-grid"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img id="modalImage" src="" alt="Enlarged view">
+        </div>
+    </div>
+    
+    <script>
+        let selectedFile = null;
+        
+        // Get DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('imageFile');
+        const processBtn = document.getElementById('processBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp'];
+            const maxSize = 16 * 1024 * 1024; // 16MB
+            
+            if (!validTypes.includes(file.type)) {
+                showError('Please select a valid image file (PNG, JPG, JPEG, GIF, BMP)');
+                return;
+            }
+            
+            if (file.size > maxSize) {
+                showError('File size exceeds 16MB limit');
+                return;
+            }
+            
+            selectedFile = file;
+            processBtn.disabled = false;
+            resetBtn.style.display = 'inline-block';
+            
+            // Display file info
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.style.display = 'block';
+            
+            // Update upload area
+            uploadArea.innerHTML = `
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <p class="upload-text" style="color: #4ade80;">File ready for processing</p>
+                <p class="upload-subtext">Click to change file or press "Process Image"</p>
+            `;
+            
+            // Hide any previous errors
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        async function processImage() {
+            if (!selectedFile) {
+                showError('Please select an image file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            
+            // UI updates
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultsContainer').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            processBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResults(data);
+                    document.getElementById('resultsContainer').style.display = 'block';
+                } else {
+                    showError(data.error || 'Error processing image');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                processBtn.disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            // Display final result separately
+            const finalResultDiv = document.getElementById('finalResult');
+            if (data.result) {
+                finalResultDiv.innerHTML = `
+                    <div class="result-item" style="animation-delay: 0s; padding: 20px; background: white;">
+                        <img src="data:image/jpeg;base64,${data.result}" 
+                             alt="Final Result with Detected Text Regions"
+                             onclick="showModal(this)"
+                             style="width: 100%; max-width: 500px; margin: 0 auto; display: block; border: 2px solid #667eea; max-height: none;">
+                    </div>
+                `;
+            }
+            
+            // Display pipeline stages (excluding the final result)
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            
+            const stages = [
+                { key: 'original', title: '1. Original Image' },
+                { key: 'grayscale', title: '2. Grayscale Conversion' },
+                { key: 'enhanced', title: '3. CLAHE Enhanced' },
+                { key: 'binary', title: '4. Binary (Otsu\'s Method)' },
+                { key: 'mser_mask', title: '5. MSER Feature Detection' },
+                { key: 'edge_mask', title: '6. Sobel Edge Detection' },
+                { key: 'intersection', title: '7. MSER ∩ Edge Mask' },
+                { key: 'filtered', title: '8. Filtered Text Regions' },
+                { key: 'morphology', title: '9. After Morphology' },
+                { key: 'result', title: '10. Final Result' }
+            ];
+            
+            stages.forEach((stage, index) => {
+                if (data[stage.key]) {
+                    const div = document.createElement('div');
+                    div.className = 'result-item';
+                    div.style.animationDelay = `${index * 0.1}s`;
+                    div.innerHTML = `
+                        <h3>${stage.title}</h3>
+                        <img src="data:image/jpeg;base64,${data[stage.key]}" 
+                             alt="${stage.title}"
+                             onclick="showModal(this)"
+                             loading="lazy">
+                    `;
+                    resultsDiv.appendChild(div);
+                }
+            });
+        }
+        
+        function showModal(img) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImg.src = img.src;
+            modalImg.alt = img.alt;
+        }
+        
+        function closeModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function resetUpload() {
+            selectedFile = null;
+            fileInput.value = '';
+            processBtn.disabled = true;
+            resetBtn.style.display = 'none';
+            fileInfo.style.display = 'none';
+            document.getElementById('resultsContainer').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            
+            // Reset upload area
+            uploadArea.innerHTML = `
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <p class="upload-text">Drag & drop an image here or click to browse</p>
+                <p class="upload-subtext">Supported formats: PNG, JPG, JPEG, GIF, BMP (Max: 16MB)</p>
+            `;
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('imageModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
